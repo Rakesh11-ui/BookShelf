@@ -1,0 +1,411 @@
+/* style.css - the only stylesheet in the project.
+   Colours are stored in variables at the top, so you can change the look in one place. */
+
+:root {
+  --green-dark: #17392f;   /* navbar, hero, footer */
+  --green: #1f6b55;        /* main buttons */
+  --green-light: #e3efe9;  /* genre tags */
+  --brass: #c79a3d;        /* small accents */
+  --page: #f2f4f1;         /* page background */
+  --card: #ffffff;
+  --text: #1f2a26;
+  --muted: #5d6b65;
+  --danger: #b3382c;
+  --line: #d8ded9;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  line-height: 1.5;
+}
+
+h1, h2, h3 {
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.25;
+}
+
+/* ---------- Layout ---------- */
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  flex: 1;
+}
+
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 20px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.page-header h2 {
+  margin: 0;
+}
+
+/* ---------- Navbar ---------- */
+
+.navbar {
+  background: var(--green-dark);
+  border-bottom: 3px solid var(--brass);
+}
+
+.navbar-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 14px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.logo {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.6rem;
+  font-weight: bold;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  gap: 22px;
+}
+
+.nav-links a {
+  color: #c9d8d1;
+  text-decoration: none;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+}
+
+.nav-links a:hover {
+  color: #ffffff;
+}
+
+/* React Router adds the class "active" to the link of the current page */
+.nav-links a.active {
+  color: #ffffff;
+  border-bottom-color: var(--brass);
+}
+
+/* ---------- Hero ---------- */
+
+.hero {
+  background: var(--green-dark);
+  color: #ffffff;
+  text-align: center;
+  padding: 56px 20px 64px;
+}
+
+.hero h1 {
+  margin: 0 0 12px;
+  font-size: 2.6rem;
+}
+
+.hero p {
+  margin: 0 auto;
+  max-width: 520px;
+  font-size: 1.1rem;
+  color: #c9d8d1;
+}
+
+/* ---------- Buttons ---------- */
+
+.btn {
+  display: inline-block;
+  padding: 9px 16px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--green);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: var(--green-dark);
+}
+
+.btn-secondary {
+  background: #ffffff;
+  color: var(--green-dark);
+  border-color: var(--green);
+}
+
+.btn-secondary:hover {
+  background: var(--green-light);
+}
+
+.btn-danger {
+  background: #ffffff;
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.btn-danger:hover {
+  background: var(--danger);
+  color: #ffffff;
+}
+
+/* Visible outline for keyboard users */
+.btn:focus-visible,
+.nav-links a:focus-visible,
+.logo:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid var(--brass);
+  outline-offset: 2px;
+}
+
+/* ---------- Messages ---------- */
+
+.message {
+  padding: 16px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--muted);
+}
+
+.error-message {
+  color: var(--danger);
+  border-color: var(--danger);
+  margin-bottom: 16px;
+}
+
+/* ---------- Book grid and cards ---------- */
+
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 24px;
+}
+
+.book-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.book-cover {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  display: block;
+  background: var(--line);
+}
+
+.no-cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.book-info {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.book-title {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+}
+
+.book-author {
+  margin: 0 0 10px;
+  color: var(--muted);
+}
+
+.genre-tag {
+  align-self: flex-start;
+  background: var(--green-light);
+  color: var(--green-dark);
+  font-size: 0.85rem;
+  padding: 2px 10px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+}
+
+/* Show at most 3 lines of the description */
+.book-description {
+  margin: 0 0 16px;
+  font-size: 0.95rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-buttons {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ---------- Reading page ---------- */
+
+.reader {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 40px 24px 56px;
+}
+
+.reader-top {
+  max-width: 680px;
+  margin: 0 auto 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.reader-cover {
+  width: 120px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.reader-title {
+  margin: 0 0 6px;
+  font-size: 2.1rem;
+}
+
+/* The comfortable reading area: serif font, big text, lots of space between lines.
+   pre-wrap keeps the paragraph breaks the author typed. */
+.reader-content {
+  max-width: 680px;
+  margin: 0 auto;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.2rem;
+  line-height: 1.9;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+/* ---------- Forms ---------- */
+
+.book-form {
+  max-width: 720px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.book-form label {
+  font-weight: 600;
+  margin: 16px 0 6px;
+}
+
+.book-form label:first-child {
+  margin-top: 0;
+}
+
+.book-form input,
+.book-form textarea {
+  padding: 10px 12px;
+  border: 1px solid #aeb8b2;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-family: inherit;
+  width: 100%;
+}
+
+.book-form textarea {
+  resize: vertical;
+}
+
+.form-buttons {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+/* ---------- Footer ---------- */
+
+.footer {
+  background: var(--green-dark);
+  color: #c9d8d1;
+  text-align: center;
+  padding: 18px 20px;
+  font-size: 0.9rem;
+}
+
+.footer p {
+  margin: 0;
+}
+
+/* ---------- Mobile ---------- */
+
+@media (max-width: 600px) {
+  .hero h1 {
+    font-size: 2rem;
+  }
+
+  .reader {
+    padding: 24px 16px 40px;
+  }
+
+  .reader-top {
+    flex-direction: column;
+  }
+
+  .reader-content {
+    font-size: 1.1rem;
+  }
+
+  .book-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  .nav-links {
+    gap: 16px;
+  }
+}
+
+@media (max-width: 420px) {
+  .book-grid {
+    grid-template-columns: 1fr;
+  }
+}

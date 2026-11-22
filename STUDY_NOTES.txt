@@ -1,0 +1,994 @@
+==============================================================================
+ BOOKSHELF - STUDY NOTES
+ Online Book Reading Platform (React + Express + MongoDB)
+==============================================================================
+
+How to use these notes
+----------------------
+* Read Part 1 first, then open the real files next to Part 2.
+* "Chapter N" always means chapter N of React_Study_Guide.pdf
+  ("React - From Zero to Understanding"). The chapter numbers and titles in
+  these notes were taken from that guide's table of contents.
+* In the guide, Chapters 35-38 (useEffect, fetch, CRUD, Backend Integration)
+  are marked "NOT YET COVERED". This project needs them, so they are explained
+  extra carefully here. Do not worry if your class has not reached them yet.
+* The guide writes components as arrow functions (const Name = () => {...}),
+  and writes state as  let [x, setX] = useState(...). This project does the
+  same, so the style matches what you have been taught.
+
+
+==============================================================================
+ PART 1: PROJECT OVERVIEW
+==============================================================================
+
+1.1 What the application does
+-----------------------------
+BookShelf is an online library. A user can:
+  - add a new book (title, author, genre, cover image URL, description, text)
+  - see all books as cards
+  - open a book and read its full text
+  - edit a book
+  - delete a book
+
+Everything is saved in a real MongoDB database, so the books are still there
+after you refresh the page or restart the computer.
+
+1.2 Technologies used
+---------------------
+  FRONTEND (what the user sees, runs in the browser)
+    React            builds the user interface from components
+    Vite             the tool that runs and builds the React project (Ch 3)
+    React Router     shows different pages for different URLs (Ch 25-30)
+    Fetch API        sends requests from the browser to the backend (Ch 36)
+    CSS              one file, style.css (Ch 9)
+
+  BACKEND (runs on your computer as a server, not in the browser)
+    Node.js          lets us run JavaScript outside the browser
+    Express          makes it easy to create a web server with routes
+    Mongoose         lets our JavaScript talk to MongoDB in a simple way
+    cors             allows the React app to call the server
+    dotenv           reads the secret settings from the .env file
+
+  DATABASE
+    MongoDB          stores the books permanently
+
+1.3 How frontend, backend and database communicate
+--------------------------------------------------
+The browser NEVER talks to MongoDB directly. That would be unsafe, because
+the database password would have to be inside the frontend code, which anyone
+can read. Instead there is a middle layer:
+
+   BROWSER (React, port 5173)
+        |   fetch("http://localhost:5000/api/books")      <- a request
+        v
+   SERVER (Express, port 5000)
+        |   Book.find()                                    <- Mongoose
+        v
+   DATABASE (MongoDB, port 27017)
+        |   the documents come back
+        v
+   SERVER turns them into JSON and sends a response
+        v
+   BROWSER (React) saves the data in state and shows it on the screen
+
+Think of a restaurant: React is the customer, Express is the waiter, MongoDB
+is the kitchen storage. The customer never walks into the storage room.
+
+The two servers run at the same time in two terminals:
+   terminal 1:  backend   ->  npm start     (port 5000)
+   terminal 2:  frontend  ->  npm run dev   (port 5173)
+
+
+==============================================================================
+ PART 2: FILE-BY-FILE EXPLANATION
+==============================================================================
+
+------------------------------ FRONTEND --------------------------------------
+
+index.html
+  The single HTML page of the whole app. It contains an empty
+  <div id="root"></div> and loads main.jsx. React fills that div. This is
+  why React apps are called "single page applications" (Ch 1).
+
+main.jsx   (Ch 2, Ch 25)
+  The entry point. It does three things:
+    1. finds <div id="root"> in index.html
+    2. wraps <App /> in <BrowserRouter> so routing works everywhere (Ch 25)
+    3. imports style.css so the styles are loaded
+  It is the first React file that runs.
+
+App.jsx
+  The main component. It shows the Navbar, then a <Routes> block that picks
+  ONE page depending on the URL, then a footer. It is the "map" of the site:
+      /               -> Home (with welcome banner)
+      /books          -> Home (without banner)       "Explore Books"
+      /book/:id       -> BookDetails
+      /add-book       -> AddBook
+      /edit-book/:id  -> EditBook
+      anything else   -> "This page does not exist"
+
+components/Navbar.jsx
+  The top bar. It has the BookShelf logo and three NavLinks: Home,
+  Explore Books, Add Book. It appears on every page because App.jsx puts it
+  outside <Routes>.
+
+components/BookCard.jsx
+  Shows ONE book as a card: cover, title, author, genre, short description
+  and three buttons (Read Book, Edit, Delete). It receives the book and a
+  delete function as props. It exists so Home can reuse the same card for
+  every book instead of repeating the same JSX (Ch 10, Ch 13).
+
+pages/Home.jsx
+  The library page. It loads all books from the backend with useEffect +
+  fetch, keeps them in state, and uses .map() to create one BookCard per
+  book. It also contains handleDelete, which calls the DELETE route. It shows
+  "Loading...", an error message, or an "empty library" message when needed.
+
+pages/BookDetails.jsx
+  The reading page. It reads the book id from the URL with useParams, fetches
+  that single book, and shows its information and full text in a comfortable
+  reading area.
+
+pages/AddBook.jsx
+  A controlled form (one state variable per field). On submit it sends a POST
+  request, resets the form, and navigates back to the library.
+
+pages/EditBook.jsx
+  The same form, but first it fetches the existing book and fills the fields.
+  On submit it sends a PUT request and navigates to the book's reading page.
+
+style.css
+  All the styling in one file. Colours are stored in variables at the top
+  (:root) so they are easy to change. A @media block at the bottom makes the
+  layout work on phones.
+
+package.json / vite.config.js
+  package.json lists the libraries (react, react-router-dom, vite) and the
+  commands (npm run dev). vite.config.js turns on the React plugin so Vite
+  understands JSX.
+
+------------------------------ BACKEND ---------------------------------------
+
+server.js
+  The starting point of the backend. It:
+    1. reads the .env file (dotenv)
+    2. creates the Express app
+    3. turns on CORS and JSON reading (middleware)
+    4. connects the book routes to the address /api/books
+    5. connects to MongoDB, and only then starts listening on the port
+
+config/db.js
+  One job: connect to MongoDB with mongoose.connect(process.env.MONGODB_URI).
+  If the connection fails it prints a clear message and stops the program,
+  because a server without a database is useless. It is in its own file so
+  server.js stays short and readable.
+
+models/Book.js
+  The schema and model. The schema lists the fields of a book and their
+  rules (title, author and content are required). The model (Book) is the
+  object we use in the routes: Book.find(), Book.findById(), and so on.
+
+routes/bookRoutes.js
+  The five CRUD routes (GET all, GET one, POST, PUT, DELETE). Each route is a
+  short async function with try/catch. It is separate from server.js so each
+  file has a single responsibility.
+
+.env / .env.example
+  .env holds the settings that can change or are secret: PORT and
+  MONGODB_URI. .env.example is a copy WITHOUT real passwords, which is safe
+  to upload to GitHub so other people know which settings are needed.
+  .gitignore tells Git to never upload .env.
+
+package.json (backend)
+  Lists the libraries (express, mongoose, cors, dotenv) and the command
+  npm start. It contains "type": "module", which lets the backend use
+  import / export, exactly like the React code (Ch 8). Because of this,
+  backend imports of OUR OWN files must end in ".js"
+  (import Book from "../models/Book.js").
+
+
+==============================================================================
+ PART 3: REACT CONCEPTS
+==============================================================================
+Each concept has: (1) meaning, (2) where it is used, (3) a code example from
+this project, (4) what the code does.
+
+------------------------------------------------------------------------------
+3.1 JSX                                            (Ch 4, Ch 5)
+------------------------------------------------------------------------------
+1. Meaning: JSX looks like HTML but it is written inside JavaScript. Rules:
+   - use {} to put a JavaScript value or expression inside JSX (Ch 5)
+   - use className instead of class
+   - every component returns ONE root element (wrap things in a <div>)
+   - tags must be closed
+   - inside JSX, htmlFor is used instead of the HTML word "for"
+2. Used in: every .jsx file.
+3. Example (BookCard.jsx):
+
+       <h3 className="book-title">{book.title}</h3>
+       <p className="book-author">by {book.author}</p>
+
+4. What it does: className gives the CSS class. {book.title} is replaced by
+   the real title text of the book. The whole card is wrapped in one <div>.
+
+------------------------------------------------------------------------------
+3.2 Functional components                          (Ch 6, Ch 7)
+------------------------------------------------------------------------------
+1. Meaning: a component is a function that returns JSX. Its name starts with
+   a capital letter, and it is written once and used many times.
+2. Used in: Navbar, BookCard, Home, BookDetails, AddBook, EditBook, App.
+   One component per file.
+3. Example (Navbar.jsx, shortened):
+
+       const Navbar = () => {
+         return (
+           <header className="navbar"> ... </header>
+         );
+       };
+       export default Navbar;
+
+4. What it does: Navbar is a function that gives back the JSX of the top bar.
+   Writing <Navbar></Navbar> in App.jsx runs that function and shows the
+   result. Forgetting the word "return" is a classic mistake (Ch 7).
+
+------------------------------------------------------------------------------
+3.3 Import and export                              (Ch 8)
+------------------------------------------------------------------------------
+1. Meaning: files are separate. "export default" makes something available
+   to other files, and "import" brings it in.
+2. Used in: every file.
+3. Example:
+
+       // BookCard.jsx (last line)
+       export default BookCard;
+
+       // Home.jsx
+       import BookCard from "../components/BookCard";
+
+4. What it does: Home can now use <BookCard>. "../components/BookCard" is the
+   file path: ".." goes up one folder, from pages/ to src/, then into
+   components/. The .jsx ending can be left out in React imports.
+   Names from libraries use curly braces:
+       import { useState, useEffect } from "react";
+
+------------------------------------------------------------------------------
+3.4 Props and parent-to-child data flow            (Ch 13, Ch 14)
+------------------------------------------------------------------------------
+1. Meaning: props are the inputs of a component, like function arguments.
+   Data flows DOWN from a parent to a child. A child must never change its
+   props. Non-string values need curly braces (Ch 13).
+2. Used in:
+   - Home gives each BookCard a book and an onDelete function
+   - App gives Home a showHero value (true or false)
+3. Example:
+
+       // Home.jsx (parent)
+       <BookCard key={book._id} book={book} onDelete={handleDelete}></BookCard>
+
+       // BookCard.jsx (child) - destructuring the props
+       const BookCard = ({ book, onDelete }) => {
+
+4. What it does: the parent passes one book object and a function. The child
+   pulls them out with destructuring and uses them. When the Delete button
+   in the child is clicked, it calls onDelete(book._id), which RUNS the
+   function that lives in the parent. That is how a child "talks back" to a
+   parent: the parent gives it a function through props.
+   showHero={true} uses braces because true is a boolean, not a string.
+
+------------------------------------------------------------------------------
+3.5 Arrays of objects                              (Ch 11)
+------------------------------------------------------------------------------
+1. Meaning: a list of things is stored as an array, and each thing is an
+   object with fields.
+2. Used in: the books state in Home.jsx. The data comes from MongoDB.
+3. Example (what the backend sends, simplified):
+
+       [
+         { _id: "65a1", title: "Alice", author: "L. Carroll", genre: "Fantasy" },
+         { _id: "65a2", title: "Emma",   author: "J. Austen",  genre: "Romance" }
+       ]
+
+4. What it does: this is the same array-of-objects shape the guide uses with
+   hardcoded data (Customer, Product, User). The only difference is that here
+   it comes from the database. Each book has an _id that MongoDB creates.
+   Be careful with field names: book.titel would give undefined and no error
+   (see the "typo" mistake in Chapter 12 and Chapter 33).
+
+------------------------------------------------------------------------------
+3.6 .map() and key                                 (Ch 12)
+------------------------------------------------------------------------------
+1. Meaning: .map() turns every item of an array into JSX. A for loop cannot
+   be used inside {} because {} only accepts expressions. Every element made
+   by .map() needs a unique key so React can track it.
+2. Used in: Home.jsx.
+3. Example:
+
+       {books.map((book) => {
+         return <BookCard key={book._id} book={book} onDelete={handleDelete}></BookCard>;
+       })}
+
+4. What it does: for each book in the array it creates one BookCard. The key
+   is book._id, which is unique and never changes. The key is NOT the index
+   because when a book is deleted the indexes of the other books would shift.
+
+------------------------------------------------------------------------------
+3.7 useState                                       (Ch 16, Ch 17, Ch 18)
+------------------------------------------------------------------------------
+1. Meaning: state is memory for a component. When you change state with its
+   setter function, React re-renders the component (Ch 18). A normal variable
+   does not do that. Never change state directly (count = count + 1); always
+   use the setter (Ch 17).
+2. Used in: Home (books, loading, error), BookDetails (book, loading, error),
+   AddBook and EditBook (one state per form field).
+3. Example (Home.jsx):
+
+       let [books, setBooks] = useState([]);
+       let [loading, setLoading] = useState(true);
+       ...
+       setBooks(data);
+       setLoading(false);
+
+4. What it does: books starts as an empty array and loading starts as true.
+   When the data arrives, setBooks(data) stores it and setLoading(false)
+   turns the loading message off. React re-renders and the cards appear.
+
+------------------------------------------------------------------------------
+3.8 Event handling                                 (Ch 15)
+------------------------------------------------------------------------------
+1. Meaning: events like onClick, onChange and onSubmit run a function when
+   the user does something. You pass the function; you do NOT call it.
+   onClick={fn} is right, onClick={fn()} is wrong (Ch 33).
+2. Used in: all buttons and forms.
+3. Example (BookCard.jsx):
+
+       <button className="btn btn-danger" onClick={() => onDelete(book._id)}>
+         Delete
+       </button>
+
+4. What it does: the arrow function () => onDelete(book._id) is only run
+   when the button is clicked. We need the arrow function because we want to
+   pass an argument (the book's id). Writing onClick={onDelete(book._id)}
+   would delete the book immediately while the page is drawn.
+
+------------------------------------------------------------------------------
+3.9 Controlled forms (onChange, onSubmit, preventDefault)   (Ch 20-24)
+------------------------------------------------------------------------------
+1. Meaning: a controlled input is one whose value comes from state
+   (value={...}) and whose changes are saved back to state (onChange={...}).
+   Then state is the single source of truth (Ch 21). onChange fires on every
+   keystroke (Ch 22). onSubmit goes on the <form> (Ch 23). e.preventDefault()
+   stops the browser from reloading the page (Ch 24). A form can only be
+   cleared by code when the inputs are controlled.
+2. Used in: AddBook.jsx and EditBook.jsx.
+3. Example (AddBook.jsx):
+
+       <input
+         id="title"
+         type="text"
+         value={title}
+         onChange={(e) => setTitle(e.target.value)}
+         required
+       ></input>
+
+       const handleSubmit = async (e) => {
+         e.preventDefault();
+         ...
+         setTitle("");
+       };
+
+4. What it does: the input always shows the state variable title. Each
+   keystroke calls setTitle with e.target.value (the text in the input), so
+   state and screen always match. In handleSubmit, e.preventDefault() stops
+   the page reload, and setTitle("") empties the input after a successful
+   save. Textareas work the same way in React (value + onChange).
+   The Cancel button has type="button" so it does not submit the form (Ch 23).
+
+------------------------------------------------------------------------------
+3.10 React Router: BrowserRouter, Routes, Route    (Ch 25, Ch 26)
+------------------------------------------------------------------------------
+1. Meaning: React Router shows different components for different URLs
+   without reloading the page. BrowserRouter wraps the app once (main.jsx).
+   <Routes> picks the one matching <Route>.
+2. Used in: main.jsx and App.jsx.
+3. Example (App.jsx):
+
+       <Routes>
+         <Route path="/" element={<Home showHero={true}></Home>}></Route>
+         <Route path="/add-book" element={<AddBook></AddBook>}></Route>
+       </Routes>
+
+4. What it does: at the URL /add-book the AddBook page is shown. A link that
+   points to a path with no matching Route gives a blank area, so every link
+   must have a Route (Ch 26, Ch 33). The path="*" route is the "not found"
+   page.
+
+------------------------------------------------------------------------------
+3.11 NavLink                                       (Ch 27)
+------------------------------------------------------------------------------
+1. Meaning: NavLink is React Router's <a> tag. It changes the URL without
+   reloading the page, and it automatically gets the class "active" when its
+   page is the current page.
+2. Used in: Navbar.jsx.
+3. Example:
+
+       <NavLink to="/" end>Home</NavLink>
+       <NavLink to="/books">Explore Books</NavLink>
+
+4. What it does: clicking switches the page. The CSS rule .nav-links a.active
+   underlines the current link. "end" on Home means "only active at exactly
+   /". Without it Home would be active on every page, because every URL
+   starts with "/".
+
+------------------------------------------------------------------------------
+3.12 useNavigate                                   (Ch 28)
+------------------------------------------------------------------------------
+1. Meaning: gives you a function to change the URL from inside your code.
+   Use NavLink when the user clicks a link; use useNavigate when navigation
+   is the RESULT of logic, such as after a form was saved (Ch 28).
+2. Used in: BookCard (Read, Edit), Home (Add New Book), AddBook and EditBook
+   (after saving), BookDetails (Back to Library, Edit Book).
+3. Example (AddBook.jsx):
+
+       let navigate = useNavigate();
+       ...
+       if (response.ok) {
+         navigate("/");
+       }
+
+4. What it does: if the server saved the book, the user is sent back to the
+   library page. navigate("/") is a plain function call, not JSX.
+
+------------------------------------------------------------------------------
+3.13 Dynamic routes and useParams                  (Ch 29, Ch 30)
+------------------------------------------------------------------------------
+1. Meaning: a dynamic route has a placeholder like :id. One Route matches
+   many URLs. useParams reads the real value out of the URL.
+2. Used in: the routes /book/:id and /edit-book/:id; BookDetails and
+   EditBook read the id.
+3. Example (BookDetails.jsx):
+
+       // App.jsx
+       <Route path="/book/:id" element={<BookDetails></BookDetails>}></Route>
+
+       // BookDetails.jsx
+       let { id } = useParams();
+       let response = await fetch(API_URL + "/" + id);
+
+4. What it does: for the URL /book/65a1, id is "65a1". That id is added to
+   the API address, so Express returns exactly that book. The link that goes
+   there is built as navigate("/book/" + book._id). The link and the route
+   pattern must match (Ch 33).
+
+------------------------------------------------------------------------------
+3.14 Conditional rendering                         (Ch 19)
+------------------------------------------------------------------------------
+1. Meaning: show different JSX depending on a condition. The ternary
+   operator  condition ? A : B  is an expression, so it fits inside {}.
+2. Used in: Home (loading / error / empty list / banner), BookDetails,
+   EditBook, BookCard (cover image or "No cover").
+3. Example (Home.jsx):
+
+       {loading ? (
+         <p className="message">Loading books...</p>
+       ) : (
+         <div> ...the books... </div>
+       )}
+
+       {books.length === 0 ? (
+         <p className="message">There are no books yet...</p>
+       ) : (
+         <div className="book-grid"> ... </div>
+       )}
+
+4. What it does: while loading is true the loading message is shown. When
+   loading is false, the list is shown. If the array is empty, a friendly
+   message appears instead of an empty gap. "condition ? something : null"
+   means "show it or show nothing".
+
+------------------------------------------------------------------------------
+3.15 useEffect                  (Ch 35 - NOT YET COVERED in the guide)
+------------------------------------------------------------------------------
+Read this one slowly. The guide only gives a short preview of useEffect
+(Chapter 35), and says "do not try to memorise it from one preview".
+
+1. Meaning: normally a component function just runs and returns JSX. But
+   "go and ask the server for data" is an extra job (a side effect). It must
+   not happen while the JSX is being drawn, and it must happen only at the
+   right moment. useEffect is the place where you say: "after the component
+   has appeared on the screen, run this code".
+2. Used in: Home (load all books), BookDetails and EditBook (load one book).
+3. Example (Home.jsx):
+
+       useEffect(() => {
+         const getBooks = async () => {
+           ...
+         };
+
+         getBooks();
+       }, []);
+
+4. What it does, step by step:
+   a. React draws the page the first time (books is [] and loading is true,
+      so the user sees "Loading books...").
+   b. After drawing, React runs the function inside useEffect.
+   c. That function calls getBooks(), which fetches the data and calls
+      setBooks(...). Changing state makes React draw the page again, now
+      with the cards.
+   d. The empty array [] at the end is the DEPENDENCY ARRAY. It means "run
+      this only ONCE, when the component first appears" (this is exactly the
+      example in Chapter 35). Without [] the effect would run after every
+      render, and because it changes state, it would cause an infinite loop
+      of fetches.
+   e. In BookDetails and EditBook the array is [id]. It means "run when the
+      component first appears, and again if id changes".
+   f. Why is there an async function INSIDE the effect? The function you give
+      to useEffect cannot be async itself, so we create async getBooks inside
+      it and call it.
+   g. In development, StrictMode (main.jsx) intentionally runs effects twice
+      so it can catch bugs. You may see two identical requests in the
+      backend. This is normal and does not happen in a real build.
+
+------------------------------------------------------------------------------
+3.16 Fetch API                  (Ch 36 - NOT YET COVERED in the guide)
+------------------------------------------------------------------------------
+Chapter 36 shows axios; this project uses fetch, which is built into the
+browser and needs no installation. They do the same job.
+
+1. Meaning: fetch sends an HTTP request to a server and gives back the
+   response. It is asynchronous: it takes time, so we use async / await,
+   which means "wait here until the answer arrives".
+2. Used in: every page that talks to the backend.
+3. Examples:
+
+       // GET (read) - Home.jsx
+       let response = await fetch(API_URL);
+       let data = await response.json();
+
+       // POST (create) - AddBook.jsx
+       let response = await fetch(API_URL, {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify(newBook),
+       });
+
+       // PUT (update) - EditBook.jsx  -> method: "PUT", URL ends with "/" + id
+       // DELETE - Home.jsx
+       let response = await fetch(API_URL + "/" + id, { method: "DELETE" });
+
+4. What it does:
+   - fetch(API_URL) with no options is a GET request.
+   - response.json() reads the body of the response and turns the JSON text
+     into a JavaScript object or array.
+   - For POST and PUT we must tell the server what we are sending:
+     "Content-Type": "application/json" says the body is JSON, and
+     JSON.stringify(newBook) turns our JavaScript object into JSON text.
+   - response.ok is true when the status code is 200-299. We check it
+     because fetch does NOT throw an error for a 404 or 500; it only throws
+     when the server cannot be reached at all. That is why we use BOTH
+     "if (response.ok)" and "try / catch".
+   Related chapters: Ch 37 (CRUD in React) and Ch 38 (Backend Integration)
+   are previews of exactly what this project builds.
+
+
+==============================================================================
+ PART 4: BACKEND CONCEPTS
+==============================================================================
+
+Node.js
+  JavaScript was first only able to run inside a browser. Node.js lets
+  JavaScript run on a normal computer or server. We use it to run the backend
+  (node server.js). npm is the tool that comes with Node and installs
+  libraries (npm install).
+
+Express.js
+  A library for Node that makes building a web server easy. Without Express
+  you would write many lines to read URLs and send replies. With Express:
+      router.get("/", async (req, res) => { ... });
+  means "when someone sends a GET request to this address, run this function".
+  req (request) is what the browser sent. res (response) is what we send back.
+
+Route
+  A route is a pair: an HTTP method + an address (path). For example
+  GET /api/books and DELETE /api/books/:id are two different routes. Each
+  route has a function that does the work. In server.js the line
+      app.use("/api/books", bookRoutes);
+  adds "/api/books" in front of every route inside bookRoutes.js.
+  A route like /api/books/:id has a parameter. Inside the function the value
+  is req.params.id.
+
+HTTP methods
+  They tell the server what you want to do:
+      GET     read data (does not change anything)
+      POST    create new data
+      PUT     update (replace) existing data
+      DELETE  remove data
+  Together they match the CRUD operations: Create = POST, Read = GET,
+  Update = PUT, Delete = DELETE.
+  The server also sends a status code: 200 OK, 201 Created, 400 Bad request
+  (the data was not valid), 404 Not found, 500 Server error.
+
+Mongoose
+  A library that connects Node to MongoDB and gives us a simple way to work
+  with data. Instead of writing database commands, we write:
+      Book.find()           get all books
+      Book.findById(id)     get one book
+      new Book({...}).save()  create a book
+      Book.findByIdAndUpdate(...)   update a book
+      Book.findByIdAndDelete(id)    delete a book
+  All of these take time, so we use await in front of them.
+
+MongoDB schema (and model)
+  MongoDB stores "documents" that look like JavaScript objects, inside
+  "collections" (like tables). MongoDB itself does not force a shape, so
+  Mongoose adds a SCHEMA: a description of what a book must look like.
+      title: { type: String, required: true }
+  means title must be text and cannot be empty. If you try to save a book
+  without a title, Mongoose rejects it (ValidationError, which we turn into
+  a 400 response). The model is created from the schema:
+      const Book = mongoose.model("Book", bookSchema);
+  and MongoDB automatically names the collection "books".
+  MongoDB also adds a unique _id to every document. That is the id we put in
+  the URL (/book/<id>).
+
+JSON
+  JavaScript Object Notation: a text format for sending data between
+  programs. Example:  {"title":"Alice","author":"L. Carroll"}
+  Express sends it with res.json(...). React reads it with response.json().
+  When the frontend SENDS data it uses JSON.stringify(...), and Express
+  reads it with the express.json() middleware, which fills req.body.
+
+CORS
+  Browsers have a safety rule: a page from one "origin" (localhost:5173)
+  may not read answers from a different origin (localhost:5000) unless that
+  server allows it. Different port = different origin. Without CORS you see
+  this error in the browser console:
+      "blocked by CORS policy"
+  app.use(cors()) in server.js tells the browser: "it is OK". (In a real
+  project you would allow only your own website address.)
+
+Middleware
+  A function that runs BEFORE the routes on every request. We use two:
+  cors() and express.json(). The JSON one has a size limit; the default is
+  100kb, which is too small for a long book, so we raise it to 10mb.
+
+.env files
+  A .env file stores settings as NAME=value lines:
+      PORT=5000
+      MONGODB_URI=mongodb://127.0.0.1:27017/bookshelf
+  dotenv.config() loads them into process.env, so the code reads
+  process.env.MONGODB_URI. Reasons to use it:
+    - passwords and secrets are not written in the code
+    - each computer can use different settings
+    - the file is listed in .gitignore so it is never uploaded to GitHub
+  .env.example shows the names without secrets. The names must match
+  exactly (MONGODB_URI, not MONGO_URI) or the value will be undefined.
+  Only the backend has a .env. The frontend must never contain the database
+  password.
+
+
+==============================================================================
+ PART 5: COMPLETE CRUD EXPLANATION
+==============================================================================
+API_URL in the frontend is  http://localhost:5000/api/books
+
+------------------------------------------------------------------------------
+5.1 CREATE a book
+------------------------------------------------------------------------------
+User:        clicks "Add New Book", fills the form, clicks "Save Book".
+Component:   AddBook.jsx (function handleSubmit).
+Endpoint:    /api/books
+Method:      POST
+Backend:     bookRoutes.js router.post("/"). It builds a new Book from
+             req.body (title, author, genre, coverImage, description,
+             content) and calls save().
+MongoDB:     Mongoose checks the schema rules and inserts a new document in
+             the "books" collection. MongoDB gives it an _id; createdAt is
+             filled with the current date.
+Response:    status 201 and the saved book as JSON. If a required field is
+             missing: status 400 and {message: "..."}.
+Frontend:    response.ok is true -> state is reset (setTitle("") and so on)
+             -> navigate("/"). Home loads, fetches all books, and the new
+             book appears (newest first, because the backend sorts by
+             createdAt).
+
+------------------------------------------------------------------------------
+5.2 READ ALL books
+------------------------------------------------------------------------------
+User:        opens Home or Explore Books.
+Component:   Home.jsx (useEffect + getBooks).
+Endpoint:    /api/books
+Method:      GET
+Backend:     router.get("/") runs Book.find().select("-content").sort(...).
+             "-content" leaves out the long text because the cards do not
+             need it, which keeps the response small.
+MongoDB:     returns every document of the books collection.
+Response:    status 200 and a JSON array of books.
+Frontend:    setBooks(data), setLoading(false). .map() creates one BookCard
+             for each book. If the array is empty: "There are no books yet".
+
+------------------------------------------------------------------------------
+5.3 READ ONE book
+------------------------------------------------------------------------------
+User:        clicks "Read Book" on a card.
+Component:   BookCard navigates to /book/<id>; BookDetails.jsx loads the
+             book (useParams + useEffect + fetch).
+Endpoint:    /api/books/<id>
+Method:      GET
+Backend:     router.get("/:id") runs Book.findById(req.params.id).
+MongoDB:     finds the one document with that _id.
+Response:    200 and the book including its full content. If the id does not
+             exist or is invalid: 404 and {message: "Book not found"}.
+Frontend:    setBook(data). The page shows cover, title, author, genre and
+             the content. For an error the message is shown instead.
+             (EditBook.jsx uses this same endpoint to fill its form.)
+
+------------------------------------------------------------------------------
+5.4 UPDATE a book
+------------------------------------------------------------------------------
+User:        clicks "Edit", changes the fields, clicks "Update Book".
+Component:   EditBook.jsx (function handleSubmit).
+Endpoint:    /api/books/<id>
+Method:      PUT
+Backend:     router.put("/:id") runs Book.findByIdAndUpdate with the new
+             values. {new: true} returns the updated book and
+             {runValidators: true} keeps the "required" rules active.
+MongoDB:     the matching document is changed.
+Response:    200 and the updated book. 400 if a required field is empty;
+             404 if the book does not exist.
+Frontend:    response.ok -> navigate("/book/" + id). BookDetails fetches
+             the book again and shows the new information.
+
+------------------------------------------------------------------------------
+5.5 DELETE a book
+------------------------------------------------------------------------------
+User:        clicks "Delete" on a card.
+Component:   BookCard calls onDelete(book._id); the function handleDelete
+             lives in Home.jsx.
+Endpoint:    /api/books/<id>
+Method:      DELETE
+Backend:     router.delete("/:id") runs Book.findByIdAndDelete(id).
+MongoDB:     the document is removed from the collection.
+Response:    200 and {message: "Book deleted"}. 404 if it was not found.
+Frontend:    books.filter((book) => book._id !== id) makes a new array that
+             contains every book except the deleted one; setBooks(...) stores
+             it and React re-renders without that card. (.filter keeps only
+             the items for which the test is true.)
+
+
+==============================================================================
+ PART 6: DATA FLOW
+==============================================================================
+Example: the user adds a book.
+
+ [ React form: AddBook.jsx ]
+   user types -> onChange -> setTitle(...)   (state = what is in the form)
+        |
+        | user clicks "Save Book" -> onSubmit -> handleSubmit(e)
+        | e.preventDefault()
+        v
+ [ Fetch API ]
+   fetch("http://localhost:5000/api/books", { method: "POST", body: JSON text })
+        |
+        |  HTTP request over the network (CORS check by the browser)
+        v
+ [ Express: server.js ]
+   cors() -> express.json() reads the body into req.body
+   app.use("/api/books", bookRoutes)
+        |
+        v
+ [ Express route: routes/bookRoutes.js ]
+   router.post("/") -> new Book({...})
+        |
+        v
+ [ Mongoose model: models/Book.js ]
+   checks the schema rules -> newBook.save()
+        |
+        v
+ [ MongoDB database: "bookshelf" -> "books" collection ]
+   the document is stored permanently, _id and createdAt are added
+        |
+        v
+ [ Express ]
+   res.status(201).json(savedBook)        <- JSON response
+        |
+        v
+ [ React: AddBook.jsx ]
+   response.ok -> reset the form -> navigate("/")
+        |
+        v
+ [ React: Home.jsx ]
+   useEffect -> fetch GET /api/books -> setBooks(data)
+        |
+        v
+ [ React UI ]
+   books.map(...) draws a BookCard for each book -> the new book is visible
+
+The same road is used for the other operations; only the method, the route
+function and the Mongoose command change:
+   read all:  GET    -> Book.find()
+   read one:  GET    -> Book.findById()
+   update:    PUT    -> Book.findByIdAndUpdate()
+   delete:    DELETE -> Book.findByIdAndDelete()
+
+
+==============================================================================
+ PART 7: COMMON MISTAKES TO AVOID
+==============================================================================
+
+7.1 The mistakes from Chapter 33 of the study guide
+---------------------------------------------------
+(Chapter 33 lists 12 mistakes. Here is each one in this project.)
+
+ 1. Forgetting "return" in a component.
+    Example: writing const Home = () => { <div>...</div> } shows nothing.
+    Fix: add "return ( ... )" inside the curly braces.
+
+ 2. Using class instead of className.
+    Example: <div class="book-card"> in BookCard.jsx. The styling would not
+    apply. Fix: className. (Same for for -> htmlFor on labels.)
+
+ 3. Forgetting imports.
+    Example: using <BookCard> or useState in Home.jsx without importing them
+    gives "BookCard is not defined". Fix: every name that is not global must
+    be imported at the top of the file.
+
+ 4. Forgetting export default.
+    Example: BookCard.jsx without "export default BookCard;" - then
+    "import BookCard from ..." fails. Fix: one export default per component
+    file.
+
+ 5. Lowercase component names.
+    Example: <bookCard /> is treated as an HTML tag. Fix: <BookCard />.
+
+ 6. Modifying state directly.
+    Example: books.push(newBook) or title = "x". The screen does not update.
+    Fix: always use the setter: setBooks(...), setTitle("x"). That is why
+    delete creates a NEW array with .filter instead of changing the old one.
+
+ 7. Missing key in .map().
+    Example: <BookCard book={book} /> with no key gives the warning "Each
+    child in a list should have a unique key prop". Fix: key={book._id}.
+
+ 8. A typo in a field name.
+    Example: book.autor instead of book.author shows nothing and gives NO
+    error. Fix: compare with the schema field names in Book.js exactly:
+    title, author, genre, coverImage, description, content.
+
+ 9. onClick={fn()} instead of onClick={fn}.
+    Example: onClick={onDelete(book._id)} would delete every book as soon
+    as the page loads. Fix: onClick={() => onDelete(book._id)}.
+
+10. Forgetting e.preventDefault().
+    Example: in handleSubmit the page reloads, the state is lost, and the
+    fetch may never finish. Fix: first line of every submit handler.
+
+11. Mismatched route params.
+    Example: the route is "/book/:id" but a button navigates to "/books/" +
+    id. It shows a blank page or the "not found" page. Fix: keep links and
+    Route paths consistent. Also: useParams() names must match the route
+    ( :id -> { id } ).
+
+12. Inputs missing value={...} (or onChange).
+    Example: an input with only onChange is not fully controlled; in
+    EditBook the form would not show the loaded values, and setTitle("")
+    would not clear the box. An input with value but no onChange cannot be
+    typed in at all. Fix: always use both.
+
+ (Also from Chapter 33: non-string props without { }. Example:
+  <Home showHero="false" /> passes the STRING "false", which counts as true!
+  Fix: showHero={false}.)
+
+7.2 Other common problems in this project
+-----------------------------------------
+ - Incorrect file paths. Pages import "../components/BookCard" (go UP one
+   folder). App.jsx imports "./components/Navbar" (same level). Backend
+   imports of our own files need ".js" at the end.
+ - Missing React Router routes. Every NavLink and navigate(...) needs a
+   matching <Route>. Check App.jsx when a page is blank.
+ - Incorrect state updates. Forgetting to reset a loading flag leaves
+   "Loading..." on the screen forever. Both success and error paths must call
+   setLoading(false).
+ - Incorrect API URLs. A missing "/api", a wrong port or a missing "/" before
+   the id (API_URL + "/" + id) causes 404 errors. Open the URL in the browser
+   to check it: http://localhost:5000/api/books
+ - Backend not running. The page shows "Could not reach the server. Is the
+   backend running?" and the browser console shows ERR_CONNECTION_REFUSED.
+   Start it with npm start in the backend folder.
+ - MongoDB connection failures. The backend prints "MongoDB connection
+   failed". Check that MongoDB is running, that the connection string is
+   right, and for Atlas that your IP is allowed and the password is correct
+   (special characters in a password must be URL-encoded).
+ - Incorrect environment variable names. The code reads MONGODB_URI. If the
+   .env file says MONGO_URI the value is undefined and the backend stops with
+   "MONGODB_URI is missing". Restart the backend after editing .env (it is
+   only read at start).
+ - CORS errors. "blocked by CORS policy" means the server did not allow the
+   frontend. Check that app.use(cors()) is in server.js BEFORE the routes.
+ - Body too large. Without { limit: "10mb" } in express.json(), saving a very
+   long book fails with status 413.
+ - Forgetting loading and error states. Without them the user sees a blank
+   page while data loads, or when the server is down. That is why Home,
+   BookDetails and EditBook keep loading and error state.
+ - A broken cover image URL. The card then shows the alt text. Use a direct
+   link to an image (it should end in .jpg, .png and so on).
+ - Putting async directly on the useEffect function. Create an async
+   function inside and call it (see 3.15).
+ - Infinite fetch loops. Leaving out the dependency array of useEffect makes
+   it run after every render. Always write [] or [id].
+
+
+==============================================================================
+ PART 8: TRY IT YOURSELF
+==============================================================================
+Do these one at a time and test each in the browser. Hints only - try first!
+
+ 1. Add a new field "publishedYear".
+    Hint: it must be added in FOUR places: the schema (Book.js), the POST and
+    PUT routes (req.body.publishedYear), the form state in AddBook and
+    EditBook, and the place where you show it (BookCard or BookDetails).
+    Which Mongoose type fits a year?
+
+ 2. Add a search bar to find books by title.
+    Hint: add a state variable for the search text and a controlled input
+    above the grid. Before .map(), make a filtered array with .filter and
+    compare lowercase text (toLowerCase and includes). No backend change is
+    needed.
+
+ 3. Filter books by genre.
+    Hint: a second state variable, for example selectedGenre. A <select>
+    with the options "All", "Fantasy", ... Think about how to combine it with
+    the search from exercise 2.
+
+ 4. Show a book count on the home page ("12 books").
+    Hint: the array already knows its size: books.length. Where in the JSX
+    should it go? What should be shown when the count is 1?
+
+ 5. Ask for confirmation before deleting.
+    Hint: the browser has a built-in function called window.confirm(...)
+    that returns true or false. Where should the "if" go: in BookCard or in
+    handleDelete?
+
+ 6. Display the date a book was created.
+    Hint: the backend already sends createdAt. It arrives as text like
+    "2026-11-19T01:13:11.920Z". Look up new Date(...) and toLocaleDateString().
+
+ 7. Show "Saving..." on the button while a form is being submitted.
+    Hint: add a boolean state called saving. Set it to true at the start of
+    handleSubmit and back to false when the request ends. Use a ternary for
+    the button text, and think about disabling the button.
+
+ 8. Add a new page that shows only books of one genre (a route such as
+    /genre/:name).
+    Hint: new file in pages/, new Route with a dynamic part, useParams to
+    read the name. You can fetch all books and filter them, or add a query to
+    the backend (Book.find({ genre: ... })). Which is better when there are
+    thousands of books? Add a NavLink or button that leads there.
+
+ 9. Show an estimated reading time on the reading page.
+    Hint: split the content on spaces and count the pieces (.split(" ")
+    .length). If an average person reads about 200 words per minute, how many
+    minutes is that? Use Math.ceil to round up.
+
+10. Sort the library: add a button that switches between "Newest first" and
+    "Title A-Z".
+    Hint: one state variable for the sort mode. Look up the array method
+    .sort and localeCompare for text. Remember that .sort changes the array
+    it is used on, so first copy it (for example with [...books]).
+
+11. Add a "Back to top" or "Next/Previous book" feature on the reading page.
+    Hint: for "Back to top" look up window.scrollTo. For Next/Previous you
+    need the list of books too; where could you get it?
+
+Self-check questions (try to answer them aloud, like in your evaluation):
+  - Why does the browser not connect directly to MongoDB?
+  - What would happen if Home.jsx had no key in .map()?
+  - Why do we need both response.ok and try/catch?
+  - What does the [] at the end of useEffect mean?
+  - What is the difference between NavLink and useNavigate?
+  - Why is e.preventDefault() needed in a form?
+  - Which file decides which page is shown for /edit-book/123?
+  - Where is the database password stored, and why not in React?
+
+==============================================================================
+ END OF STUDY NOTES
+==============================================================================
